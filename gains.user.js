@@ -4,6 +4,8 @@
 // @version      1.1.0
 // @description  Добыча руды в шахте: последняя руда, за сессию, инвентарь, уровень и опыт
 // @match        https://play.multidonate.ru/c/*
+// @downloadURL  https://raw.githubusercontent.com/GhostizS6/LegionMine/master/gains.user.js
+// @updateURL    https://raw.githubusercontent.com/GhostizS6/LegionMine/master/gains.user.js
 // @run-at       document-start
 // @grant        none
 // ==/UserScript==
