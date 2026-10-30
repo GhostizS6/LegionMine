@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Добыча (RU)
 // @namespace    loot-ru
-// @version      1.3.0
+// @version      1.4.0
 // @description  Добыча руды в шахте: последняя руда, за сессию, инвентарь, уровень и опыт
 // @match        https://play.multidonate.ru/c/*
 // @run-at       document-start
@@ -19,8 +19,6 @@
     const PANEL_ID = "loot-ru";
     const STYLE_ID = "loot-ru-style";
 
-    const sessionGains = new Map();
-
     let baseline = new Map();
     let baselineReady = false;
     let inventory = new Map();
@@ -28,6 +26,7 @@
     let lastGainAt = 0;
     let startedAt = Date.now();
     let mastery = null;
+    let minePopulation = null;
 
     let panel = null;
     let bodyElement = null;
@@ -132,10 +131,6 @@
 
             if (delta <= 0) continue;
 
-            sessionGains.set(
-                resource,
-                (sessionGains.get(resource) || 0) + delta
-            );
             tick.set(resource, delta);
         }
 
@@ -166,6 +161,36 @@
         return /\/api\/mine\/(state|enter)$/i.test(path);
     }
 
+    function observeMineState(json) {
+        if (!json || typeof json !== "object") return;
+
+        const st = json.st && typeof json.st === "object" ? json.st : json;
+        const rawHere = json.here != null ? json.here : st.here;
+        const rawWorking = json.hw != null ? json.hw : st.working;
+        const here = rawHere == null ? null : Number(rawHere);
+        const working = rawWorking == null ? null : Number(rawWorking);
+
+        const next = {
+            here: Number.isFinite(here)
+                ? here
+                : (minePopulation ? minePopulation.here : null),
+            working: Number.isFinite(working)
+                ? working
+                : (minePopulation ? minePopulation.working : null)
+        };
+
+        if (
+            minePopulation &&
+            minePopulation.here === next.here &&
+            minePopulation.working === next.working
+        ) {
+            return;
+        }
+
+        minePopulation = next;
+        render();
+    }
+
     function handleJson(url, json) {
         if (!json || typeof json !== "object") return;
 
@@ -177,6 +202,7 @@
         }
 
         if (isMineStatePath(path)) {
+            observeMineState(json);
             if (json.me) applyMastery(json.me);
             if (json.hero) observeHero(json.hero);
         }
@@ -315,7 +341,7 @@
         const fragment = document.createDocumentFragment();
 
         const status = card();
-        status.append(row("Начало сесси в:", new Date(startedAt).toLocaleTimeString("ru-RU")));
+        status.append(row("Начало сессии", new Date(startedAt).toLocaleTimeString("ru-RU")));
 
         if (mastery) {
             status.append(row("Уровень", `${mastery.lv} лвл`));
@@ -352,10 +378,23 @@
         fillRows(last, lastGain, "пока не было");
         fragment.append(last);
 
-        const session = card();
-        session.append(el("div", "mloot-k", "За сессию"));
-        fillRows(session, sessionGains, "прироста пока нет");
-        fragment.append(session);
+        const people = card();
+        people.append(el("div", "mloot-k", "В шахте"));
+        people.append(
+            row(
+                "Сейчас",
+                minePopulation && minePopulation.here != null
+                    ? String(minePopulation.here)
+                    : "—"
+            ),
+            row(
+                "Копают",
+                minePopulation && minePopulation.working != null
+                    ? String(minePopulation.working)
+                    : "—"
+            )
+        );
+        fragment.append(people);
 
         const bag = card();
         bag.append(el("div", "mloot-k", "Инвентарь"));
@@ -671,7 +710,6 @@
         const resetButton = el("button", "mloot-btn", "Сбросить");
         resetButton.type = "button";
         resetButton.addEventListener("click", () => {
-            sessionGains.clear();
             lastGain = new Map();
             lastGainAt = 0;
             baseline = new Map();
