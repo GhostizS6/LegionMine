@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Добыча (RU)
 // @namespace    loot-ru
-// @version      1.4.1
+// @version      1.4.2
 // @description  Добыча руды в шахте: последняя руда, за сессию, инвентарь, уровень и опыт
 // @match        https://play.multidonate.ru/c/*
 // @run-at       document-start
@@ -26,7 +26,6 @@
     let lastGainAt = 0;
     let startedAt = Date.now();
     let mastery = null;
-    let minePopulation = null;
 
     let panel = null;
     let bodyElement = null;
@@ -161,36 +160,6 @@
         return /\/api\/mine\/(state|enter)$/i.test(path);
     }
 
-    function observeMineState(json) {
-        if (!json || typeof json !== "object") return;
-
-        const st = json.st && typeof json.st === "object" ? json.st : json;
-        const rawHere = json.here != null ? json.here : st.here;
-        const rawWorking = json.hw != null ? json.hw : st.working;
-        const here = rawHere == null ? null : Number(rawHere);
-        const working = rawWorking == null ? null : Number(rawWorking);
-
-        const next = {
-            here: Number.isFinite(here)
-                ? here
-                : (minePopulation ? minePopulation.here : null),
-            working: Number.isFinite(working)
-                ? working
-                : (minePopulation ? minePopulation.working : null)
-        };
-
-        if (
-            minePopulation &&
-            minePopulation.here === next.here &&
-            minePopulation.working === next.working
-        ) {
-            return;
-        }
-
-        minePopulation = next;
-        render();
-    }
-
     function handleJson(url, json) {
         if (!json || typeof json !== "object") return;
 
@@ -202,7 +171,6 @@
         }
 
         if (isMineStatePath(path)) {
-            observeMineState(json);
             if (json.me) applyMastery(json.me);
             if (json.hero) observeHero(json.hero);
         }
@@ -341,21 +309,8 @@
         const fragment = document.createDocumentFragment();
 
         const status = card();
-        const inMine = minePopulation
-            ? (minePopulation.here != null
-                ? minePopulation.here
-                : minePopulation.working)
-            : null;
-
         status.append(
-            row("Начало сессии", new Date(startedAt).toLocaleTimeString("ru-RU")),
-            row("В шахте", inMine != null ? String(inMine) : "—"),
-            row(
-                "Копают",
-                minePopulation && minePopulation.working != null
-                    ? String(minePopulation.working)
-                    : "—"
-            )
+            row("Начало сессии", new Date(startedAt).toLocaleTimeString("ru-RU"))
         );
 
         if (mastery) {
