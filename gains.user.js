@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Добыча (RU)
 // @namespace    loot-ru
-// @version      1.4.0
+// @version      1.4.1
 // @description  Добыча руды в шахте: последняя руда, за сессию, инвентарь, уровень и опыт
 // @match        https://play.multidonate.ru/c/*
 // @run-at       document-start
@@ -341,7 +341,22 @@
         const fragment = document.createDocumentFragment();
 
         const status = card();
-        status.append(row("Начало сессии", new Date(startedAt).toLocaleTimeString("ru-RU")));
+        const inMine = minePopulation
+            ? (minePopulation.here != null
+                ? minePopulation.here
+                : minePopulation.working)
+            : null;
+
+        status.append(
+            row("Начало сессии", new Date(startedAt).toLocaleTimeString("ru-RU")),
+            row("В шахте", inMine != null ? String(inMine) : "—"),
+            row(
+                "Копают",
+                minePopulation && minePopulation.working != null
+                    ? String(minePopulation.working)
+                    : "—"
+            )
+        );
 
         if (mastery) {
             status.append(row("Уровень", `${mastery.lv} лвл`));
@@ -377,24 +392,6 @@
         last.append(lastHead);
         fillRows(last, lastGain, "пока не было");
         fragment.append(last);
-
-        const people = card();
-        people.append(el("div", "mloot-k", "В шахте"));
-        people.append(
-            row(
-                "Сейчас",
-                minePopulation && minePopulation.here != null
-                    ? String(minePopulation.here)
-                    : "—"
-            ),
-            row(
-                "Копают",
-                minePopulation && minePopulation.working != null
-                    ? String(minePopulation.working)
-                    : "—"
-            )
-        );
-        fragment.append(people);
 
         const bag = card();
         bag.append(el("div", "mloot-k", "Инвентарь"));
