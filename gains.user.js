@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Добыча (RU)
 // @namespace    loot-ru
-// @version      1.4.2
+// @version      1.4.3
 // @description  Добыча руды в шахте: последняя руда, за сессию, инвентарь, уровень и опыт
 // @match        https://play.multidonate.ru/c/*
 // @run-at       document-start
@@ -19,6 +19,8 @@
     const PANEL_ID = "loot-ru";
     const STYLE_ID = "loot-ru-style";
 
+    const sessionGains = new Map();
+
     let baseline = new Map();
     let baselineReady = false;
     let inventory = new Map();
@@ -26,6 +28,7 @@
     let lastGainAt = 0;
     let startedAt = Date.now();
     let mastery = null;
+    let sessionValueElement = null;
 
     let panel = null;
     let bodyElement = null;
@@ -57,6 +60,17 @@
     function resourceName(id) {
         const names = window.LG_GAME_DATA && window.LG_GAME_DATA.res;
         return (names && names[id]) || id;
+    }
+
+    function formatDuration(ms) {
+        const total = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+        const hours = Math.floor(total / 3600);
+        const minutes = Math.floor((total % 3600) / 60);
+        const seconds = total % 60;
+
+        return [hours, minutes, seconds]
+            .map(value => String(value).padStart(2, "0"))
+            .join(":");
     }
 
     function totalsOf(hero) {
@@ -130,6 +144,10 @@
 
             if (delta <= 0) continue;
 
+            sessionGains.set(
+                resource,
+                (sessionGains.get(resource) || 0) + delta
+            );
             tick.set(resource, delta);
         }
 
@@ -308,13 +326,30 @@
 
         const fragment = document.createDocumentFragment();
 
-        const status = card();
-        status.append(
-            row("Начало сессии", new Date(startedAt).toLocaleTimeString("ru-RU"))
+        const timeCard = card();
+        const sessionRow = row(
+            "Сессия",
+            formatDuration(Date.now() - startedAt)
         );
+        sessionValueElement = sessionRow.querySelector("b");
+        timeCard.append(
+            row("Начало сессии", new Date(startedAt).toLocaleTimeString("ru-RU")),
+            sessionRow
+        );
+        fragment.append(timeCard);
+
+        const level = card();
+        level.append(el("div", "mloot-k", "Уровень"));
 
         if (mastery) {
-            status.append(row("Уровень", `${mastery.lv} лвл`));
+            level.append(
+                row(
+                    `${mastery.lv} лвл`,
+                    mastery.need > 0
+                        ? `${mastery.xp} / ${mastery.need}`
+                        : `${mastery.xp} / —`
+                )
+            );
 
             if (mastery.need > 0) {
                 const percent = Math.min(
@@ -325,32 +360,34 @@
                 const fill = el("i");
                 fill.style.width = `${percent.toFixed(1)}%`;
                 bar.append(fill);
-                status.append(
-                    bar,
-                    el("div", "mloot-muted", `${mastery.xp} / ${mastery.need}`)
-                );
-            } else {
-                status.append(el("div", "mloot-muted", `${mastery.xp} / —`));
+                level.append(bar);
             }
+        } else {
+            level.append(el("div", "mloot-empty", "—"));
         }
 
-        fragment.append(status);
+        fragment.append(level);
 
         const last = card();
         const lastHead = el("div", "mloot-kline");
-        lastHead.append(el("div", "mloot-k", "Последняя руда"));
+        lastHead.append(el("div", "mloot-k", "Добуто за останню руду"));
 
         if (lastGainAt) {
             lastHead.append(el("span", "mloot-time", new Date(lastGainAt).toLocaleTimeString("ru-RU")));
         }
 
         last.append(lastHead);
-        fillRows(last, lastGain, "пока не было");
+        fillRows(last, lastGain, "пока ничего");
         fragment.append(last);
 
+        const session = card();
+        session.append(el("div", "mloot-k", "Добито за сесію"));
+        fillRows(session, sessionGains, "поки нічого");
+        fragment.append(session);
+
         const bag = card();
-        bag.append(el("div", "mloot-k", "Инвентарь"));
-        fillRows(bag, inventory, "пусто");
+        bag.append(el("div", "mloot-k", "Інвентар"));
+        fillRows(bag, inventory, "порожньо");
         fragment.append(bag);
 
         bodyElement.textContent = "";
@@ -662,6 +699,7 @@
         const resetButton = el("button", "mloot-btn", "Сбросить");
         resetButton.type = "button";
         resetButton.addEventListener("click", () => {
+            sessionGains.clear();
             lastGain = new Map();
             lastGainAt = 0;
             baseline = new Map();
@@ -703,6 +741,13 @@
 
         ensureHeaderButton();
         setInterval(ensureHeaderButton, 1000);
+        setInterval(() => {
+            if (sessionValueElement) {
+                sessionValueElement.textContent = formatDuration(
+                    Date.now() - startedAt
+                );
+            }
+        }, 1000);
         window.addEventListener("resize", () => {
             if (isOpen) positionPanel();
         });
