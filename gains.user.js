@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Mine Loot (RU)
-// @namespace    mine-loot
-// @version      1.1.0
+// @name         Добыча (RU)
+// @namespace    loot-ru
+// @version      1.2.0
 // @description  Добыча руды в шахте: последняя руда, за сессию, инвентарь, уровень и опыт
 // @match        https://play.multidonate.ru/c/*
 // @downloadURL  https://raw.githubusercontent.com/GhostizS6/LegionMine/master/gains.user.js
@@ -13,13 +13,13 @@
 (() => {
     "use strict";
 
-    if (window.__MINE_LOOT_RU_V1__) return;
-    window.__MINE_LOOT_RU_V1__ = true;
+    if (window.__LOOT_RU_V1__) return;
+    window.__LOOT_RU_V1__ = true;
 
-    const STORAGE_COLLAPSED = "mine-loot-ru-collapsed";
+    const STORAGE_COLLAPSED = "loot-ru-collapsed";
     const REFRESH_MS = 15000;
-    const PANEL_ID = "mine-loot-ru";
-    const STYLE_ID = "mine-loot-ru-style";
+    const PANEL_ID = "loot-ru";
+    const STYLE_ID = "loot-ru-style";
 
     const sessionGains = new Map();
 
@@ -35,6 +35,8 @@
     let bodyElement = null;
     let collapseButton = null;
     let collapsed = false;
+    let isOpen = false;
+    let activeToggle = null;
 
     try {
         collapsed = localStorage.getItem(STORAGE_COLLAPSED) === "1";
@@ -373,6 +375,106 @@
         bodyElement.append(fragment);
     }
 
+    function isVisible(element) {
+        if (!element) return false;
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+    }
+
+    function findHeaderHosts() {
+        const hosts = [];
+        const mineBar = document.querySelector(".mn-top .mn-tb");
+
+        if (mineBar) hosts.push(mineBar);
+
+        const user = document.getElementById("user");
+        const globalHeader = user && (user.closest("header") || user.parentElement);
+
+        if (
+            globalHeader &&
+            !globalHeader.closest(".mn") &&
+            isVisible(globalHeader)
+        ) {
+            hosts.push(globalHeader);
+        }
+
+        return hosts;
+    }
+
+    function ensureHeaderButton() {
+        let added = false;
+
+        for (const host of findHeaderHosts()) {
+            let button = host.querySelector("[data-loot-ru-toggle]");
+
+            if (!button) {
+                button = el("button", "btn ghost sm loot-toggle", "Добыча");
+                button.type = "button";
+                button.dataset.lootRuToggle = "1";
+                button.title = "Добыча: последняя руда, сессия, инвентарь";
+                button.addEventListener("click", event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    activeToggle = button;
+                    setPanelOpen(!isOpen);
+                });
+                host.append(button);
+                added = true;
+            }
+
+            button.setAttribute("aria-expanded", isOpen ? "true" : "false");
+        }
+
+        if (added && isOpen) positionPanel();
+    }
+
+    function positionPanel() {
+        if (!panel) return false;
+
+        const buttons = [...document.querySelectorAll("[data-loot-ru-toggle]")];
+        const button = activeToggle && activeToggle.isConnected && isVisible(activeToggle)
+            ? activeToggle
+            : buttons.find(isVisible);
+
+        if (!button) return false;
+
+        panel.style.display = "block";
+
+        const rect = button.getBoundingClientRect();
+        const width = panel.offsetWidth || 320;
+        const height = panel.offsetHeight || 0;
+        const left = Math.min(
+            window.innerWidth - width - 12,
+            Math.max(12, rect.right - width)
+        );
+        const top = Math.min(
+            window.innerHeight - height - 12,
+            Math.max(12, rect.bottom + 8)
+        );
+
+        panel.style.left = `${Math.max(12, left)}px`;
+        panel.style.top = `${Math.max(12, top)}px`;
+        panel.style.bottom = "auto";
+
+        return true;
+    }
+
+    function setPanelOpen(open) {
+        isOpen = !!open;
+
+        if (panel) {
+            if (isOpen) {
+                if (!positionPanel()) panel.style.display = "none";
+            } else {
+                panel.style.display = "none";
+            }
+        }
+
+        document.querySelectorAll("[data-loot-ru-toggle]").forEach(button => {
+            button.setAttribute("aria-expanded", isOpen ? "true" : "false");
+        });
+    }
+
     function applyCollapsed() {
         if (!bodyElement || !collapseButton) return;
 
@@ -549,6 +651,27 @@
                 border-radius: 999px;
                 background: linear-gradient(90deg, #ffcf6a, #ffe27a);
             }
+
+            .loot-toggle {
+                margin-left: 8px;
+                padding: 5px 10px;
+                color: #f3efe6;
+                background: linear-gradient(#4a3f52, #3a3142);
+                border: 2px solid #15122e;
+                border-radius: 10px;
+                box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .35);
+                font: 700 11px "Golos Text", Arial, sans-serif;
+                white-space: nowrap;
+                cursor: pointer;
+            }
+
+            .loot-toggle:hover {
+                filter: brightness(1.12);
+            }
+
+            .loot-toggle[aria-expanded="true"] {
+                color: #ffcf6a !important;
+            }
         `;
 
         (document.head || document.documentElement).append(style);
@@ -592,15 +715,28 @@
             applyCollapsed();
         });
 
-        header.append(title, resetButton, collapseButton);
+        const closeButton = el("button", "mloot-btn mloot-square", "×");
+        closeButton.type = "button";
+        closeButton.title = "Закрыть";
+        closeButton.addEventListener("click", () => setPanelOpen(false));
+
+        header.append(title, resetButton, collapseButton, closeButton);
 
         bodyElement = el("div", "mloot-body");
 
         panel.append(header, bodyElement);
         document.body.append(panel);
 
+        panel.style.display = "none";
+
         applyCollapsed();
         render();
+
+        ensureHeaderButton();
+        setInterval(ensureHeaderButton, 1000);
+        window.addEventListener("resize", () => {
+            if (isOpen) positionPanel();
+        });
 
         let drag = null;
 
