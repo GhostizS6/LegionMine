@@ -616,11 +616,6 @@
                 font-size: 11px;
             }
 
-            #${PANEL_ID} .mloot-total {
-                padding-top: 6px;
-                border-top: 1px solid var(--ml-line);
-            }
-
             #${PANEL_ID} .mloot-bar {
                 height: 8px;
                 padding: 1px;
