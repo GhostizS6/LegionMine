@@ -315,7 +315,7 @@
         const fragment = document.createDocumentFragment();
 
         const status = card();
-        status.append(row("Сессия", new Date(startedAt).toLocaleTimeString("ru-RU")));
+        status.append(row("Начало сесси в:", new Date(startedAt).toLocaleTimeString("ru-RU")));
 
         if (mastery) {
             status.append(row("Уровень", `${mastery.lv} лвл`));
