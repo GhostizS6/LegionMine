@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Добыча (RU)
 // @namespace    loot-ru
-// @version      1.4.3
+// @version      1.4.4
 // @description  Добыча руды в шахте: последняя руда, за сессию, инвентарь, уровень и опыт
 // @match        https://play.multidonate.ru/c/*
 // @run-at       document-start
@@ -370,7 +370,7 @@
 
         const last = card();
         const lastHead = el("div", "mloot-kline");
-        lastHead.append(el("div", "mloot-k", "Добуто за останню руду"));
+        lastHead.append(el("div", "mloot-k", "Добыто за последнюю руду"));
 
         if (lastGainAt) {
             lastHead.append(el("span", "mloot-time", new Date(lastGainAt).toLocaleTimeString("ru-RU")));
@@ -381,13 +381,13 @@
         fragment.append(last);
 
         const session = card();
-        session.append(el("div", "mloot-k", "Добито за сесію"));
-        fillRows(session, sessionGains, "поки нічого");
+        session.append(el("div", "mloot-k", "Добыто за сессию"));
+        fillRows(session, sessionGains, "пока ничего");
         fragment.append(session);
 
         const bag = card();
-        bag.append(el("div", "mloot-k", "Інвентар"));
-        fillRows(bag, inventory, "порожньо");
+        bag.append(el("div", "mloot-k", "Инвентарь"));
+        fillRows(bag, inventory, "пусто");
         fragment.append(bag);
 
         bodyElement.textContent = "";
