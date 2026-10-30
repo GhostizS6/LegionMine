@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Добыча (RU)
 // @namespace    loot-ru
-// @version      1.2.0
+// @version      1.3.0
 // @description  Добыча руды в шахте: последняя руда, за сессию, инвентарь, уровень и опыт
 // @match        https://play.multidonate.ru/c/*
 // @downloadURL  https://raw.githubusercontent.com/GhostizS6/LegionMine/master/gains.user.js
@@ -356,14 +356,7 @@
 
         const session = card();
         session.append(el("div", "mloot-k", "За сессию"));
-        const sessionTotal = fillRows(session, sessionGains, "прироста пока нет");
-
-        if (sessionTotal) {
-            const total = row("Итого", formatValue(sessionTotal));
-            total.classList.add("mloot-total");
-            session.append(total);
-        }
-
+        fillRows(session, sessionGains, "прироста пока нет");
         fragment.append(session);
 
         const bag = card();
@@ -382,29 +375,21 @@
     }
 
     function findHeaderHosts() {
-        const hosts = [];
         const mineBar = document.querySelector(".mn-top .mn-tb");
-
-        if (mineBar) hosts.push(mineBar);
-
-        const user = document.getElementById("user");
-        const globalHeader = user && (user.closest("header") || user.parentElement);
-
-        if (
-            globalHeader &&
-            !globalHeader.closest(".mn") &&
-            isVisible(globalHeader)
-        ) {
-            hosts.push(globalHeader);
-        }
-
-        return hosts;
+        return mineBar ? [mineBar] : [];
     }
 
     function ensureHeaderButton() {
+        const hosts = findHeaderHosts();
+
+        if (!hosts.length) {
+            if (isOpen) setPanelOpen(false);
+            return;
+        }
+
         let added = false;
 
-        for (const host of findHeaderHosts()) {
+        for (const host of hosts) {
             let button = host.querySelector("[data-loot-ru-toggle]");
 
             if (!button) {
@@ -663,6 +648,7 @@
                 font: 700 11px "Golos Text", Arial, sans-serif;
                 white-space: nowrap;
                 cursor: pointer;
+                pointer-events: auto;
             }
 
             .loot-toggle:hover {
