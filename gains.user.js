@@ -215,14 +215,14 @@
     const originalSend = XMLHttpRequest.prototype.send;
 
     XMLHttpRequest.prototype.open = function (method, url, ...rest) {
-        this.__mineLootRuUrl = String(url || "");
+        this.__lootRuUrl = String(url || "");
         return originalOpen.call(this, method, url, ...rest);
     };
 
     XMLHttpRequest.prototype.send = function (...args) {
         this.addEventListener("load", () => {
             try {
-                const url = this.__mineLootRuUrl || "";
+                const url = this.__lootRuUrl || "";
                 const path = pathnameOf(url);
 
                 if (
